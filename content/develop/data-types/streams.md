@@ -9,7 +9,9 @@ categories:
 - oss
 - kubernetes
 - clients
-description: Introduction to Redis streams
+description: 'Introduction to Redis streams
+
+  '
 linkTitle: Streams
 title: Redis Streams
 weight: 60
@@ -26,18 +28,16 @@ Examples of Redis stream use cases include:
 Redis generates a unique ID for each stream entry.
 You can use these IDs to retrieve their associated entries later or to read and process all subsequent entries in the stream. Note that because these IDs are related to time, the ones shown here may vary and will be different from the IDs you see in your own Redis instance.
 
-Redis streams support several trimming strategies (to prevent streams from growing unbounded) and more than one consumption strategy (see [`XREAD`]({{< relref "/commands/xread" >}}), [`XREADGROUP`]({{< relref "/commands/xreadgroup" >}}), and [`XRANGE`]({{< relref "/commands/xrange" >}})). Starting with Redis 8.2, the `XACKDEL`, `XDELEX`, `XADD`, and `XTRIM` commands provide fine-grained control over how stream operations interact with multiple consumer groups, simplifying the coordination of message processing across different applications.
+Redis streams support several trimming strategies (to prevent streams from growing unbounded) and more than one consumption strategy (see [`XREAD`]({{< relref "/commands/xread" >}}), [`XREADGROUP`]({{< relref "/commands/xreadgroup" >}}), and [`XRANGE`]({{< relref "/commands/xrange" >}})).
 
 ## Basic commands
-
 * [`XADD`]({{< relref "/commands/xadd" >}}) adds a new entry to a stream.
 * [`XREAD`]({{< relref "/commands/xread" >}}) reads one or more entries, starting at a given position and moving forward in time.
 * [`XRANGE`]({{< relref "/commands/xrange" >}}) returns a range of entries between two supplied entry IDs.
 * [`XLEN`]({{< relref "/commands/xlen" >}}) returns the length of a stream.
-* [`XDEL`]({{< relref "/commands/xdel" >}}) removes entries from a stream.
-* [`XTRIM`]({{< relref "/commands/xtrim" >}}) trims a stream by removing older entries.
-
+ 
 See the [complete list of stream commands]({{< relref "/commands/" >}}?group=stream).
+
 
 ## Examples
 
@@ -89,6 +89,7 @@ For details on why, note that streams are implemented as [radix trees](https://e
 
 Simply put, Redis streams provide highly efficient inserts and reads.
 See each command's time complexity for the details.
+
 
 ## Streams basics
 
@@ -332,7 +333,7 @@ Apart from the fact that [`XREAD`]({{< relref "/commands/xread" >}}) can access 
 > XREAD BLOCK 0 STREAMS race:france $
 ```
 
-Note that in the example above, other than removing **COUNT**, I specified the new **BLOCK** option with a timeout of 0 milliseconds (that means to never timeout). Moreover, instead of passing a normal ID for the stream `mystream` I passed the special ID `$`. This special ID means that [`XREAD`]({{< relref "/commands/xread" >}}) should use as last ID the maximum ID already stored in the stream `mystream`, so that we will receive only *new* messages, starting from the time we started listening. This is similar to the `tail -f` Unix command in some way.
+Note that in the example above, other than removing **COUNT**, I specified the new **BLOCK** option with a timeout of 0 milliseconds (that means to never timeout). Moreover, instead of passing a normal ID for the stream `race:france` I passed the special ID `$`. This special ID means that [`XREAD`]({{< relref "/commands/xread" >}}) should use as last ID the maximum ID already stored in the stream `race:france`, so that we will receive only *new* messages, starting from the time we started listening. This is similar to the `tail -f` Unix command in some way.
 
 Note that when the **BLOCK** option is used, we do not have to use the special ID `$`. We can use any valid ID. If the command is able to serve our request immediately without blocking, it will do so, otherwise it will block. Normally if we want to consume the stream starting from new entries, we start with the ID `$`, and after that we continue using the ID of the last message received to make the next call, and so forth.
 
@@ -392,7 +393,6 @@ Now it's time to zoom in to see the fundamental consumer group commands. They ar
 * [`XGROUP`]({{< relref "/commands/xgroup" >}}) is used in order to create, destroy and manage consumer groups.
 * [`XREADGROUP`]({{< relref "/commands/xreadgroup" >}}) is used to read from a stream via a consumer group.
 * [`XACK`]({{< relref "/commands/xack" >}}) is the command that allows a consumer to mark a pending message as correctly processed.
-* [`XACKDEL`]({{< relref "/commands/xackdel" >}}) combines acknowledgment and deletion in a single atomic operation with enhanced control over consumer group references.
 
 ## Creating a consumer group
 
@@ -437,9 +437,9 @@ Note: *here rider is the field name, and the name is the associated value. Remem
             2) "Castilla"
 {{< /clients-example >}}
 
-[`XREADGROUP`]({{< relref "/commands/xreadgroup" >}}) replies are just like [`XREAD`]({{< relref "/commands/xread" >}}) replies. Note however the `GROUP <group-name> <consumer-name>` provided above. It states that I want to read from the stream using the consumer group `mygroup` and I'm the consumer `Alice`. Every time a consumer performs an operation with a consumer group, it must specify its name, uniquely identifying this consumer inside the group.
+[`XREADGROUP`]({{< relref "/commands/xreadgroup" >}}) replies are just like [`XREAD`]({{< relref "/commands/xread" >}}) replies. Note however the `GROUP <group-name> <consumer-name>` provided above. It states that I want to read from the stream using the consumer group `italy_riders` and I'm the consumer `Alice`. Every time a consumer performs an operation with a consumer group, it must specify its name, uniquely identifying this consumer inside the group.
 
-There is another very important detail in the command line above, after the mandatory **STREAMS** option the ID requested for the key `mystream` is the special ID `>`. This special ID is only valid in the context of consumer groups, and it means: **messages never delivered to other consumers so far**.
+There is another very important detail in the command line above, after the mandatory **STREAMS** option the ID requested for the key `race:italy` is the special ID `>`. This special ID is only valid in the context of consumer groups, and it means: **messages never delivered to other consumers so far**.
 
 This is almost always what you want, however it is also possible to specify a real ID, such as `0` or any other valid ID, in this case, however, what happens is that we request from [`XREADGROUP`]({{< relref "/commands/xreadgroup" >}}) to just provide us with the **history of pending messages**, and in such case, will never see new messages in the group. So basically [`XREADGROUP`]({{< relref "/commands/xreadgroup" >}}) has the following behavior based on the ID we specify:
 
@@ -481,7 +481,7 @@ Now it's Bob's turn to read something:
             2) "Sam-Bodden"
 {{< /clients-example >}}
 
-Bob asked for a maximum of two messages and is reading via the same group `mygroup`. So what happens is that Redis reports just *new* messages. As you can see the "Castilla" message is not delivered, since it was already delivered to Alice, so Bob gets Royce and Sam-Bodden and so forth.
+Bob asked for a maximum of two messages and is reading via the same group `italy_riders`. So what happens is that Redis reports just *new* messages. As you can see the "Castilla" message is not delivered, since it was already delivered to Alice, so Bob gets Royce and Sam-Bodden and so forth.
 
 This way Alice, Bob, and any other consumer in the group, are able to read different messages from the same stream, to read their history of yet to process messages, or to mark messages as processed. This allows creating different topologies and semantics for consuming messages from a stream.
 
@@ -681,31 +681,6 @@ The counter that you observe in the [`XPENDING`]({{< relref "/commands/xpending"
 
 When there are failures, it is normal that messages will be delivered multiple times, but eventually they usually get processed and acknowledged. However there might be a problem processing some specific message, because it is corrupted or crafted in a way that triggers a bug in the processing code. In such a case what happens is that consumers will continuously fail to process this particular message. Because we have the counter of the delivery attempts, we can use that counter to detect messages that for some reason are not processable. So once the deliveries counter reaches a given large number that you chose, it is probably wiser to put such messages in another stream and send a notification to the system administrator. This is basically the way that Redis Streams implements the *dead letter* concept.
 
-## Working with multiple consumer groups
-
-Redis Streams can be associated with multiple consumer groups, where each entry is delivered to all the stream's consumer groups. Within each consumer group, consumers handle a portion of the entries collaboratively. This design enables different applications or services to process the same stream data independently.
-
-When a consumer processes a message, it acknowledges it using the [`XACK`]({{< relref "/commands/xack" >}}) command, which removes the entry reference from the Pending Entries List (PEL) of that specific consumer group. However, the entry remains in the stream and in the PELs of other consumer groups until they also acknowledge it.
-
-Traditionally, applications needed to implement complex logic to delete entries from the stream only after all consumer groups had acknowledged them. This coordination was challenging to implement correctly and efficiently.
-
-### Enhanced deletion control in Redis 8.2
-
-Starting with Redis 8.2, several commands provide enhanced control over how entries are handled with respect to multiple consumer groups:
-
-* [`XADD`]({{< relref "/commands/xadd" >}}) with trimming options now supports `KEEPREF`, `DELREF`, and `ACKED` modes
-* [`XTRIM`]({{< relref "/commands/xtrim" >}}) supports the same reference handling options
-* [`XDELEX`]({{< relref "/commands/xdelex" >}}) provides fine-grained deletion control
-* [`XACKDEL`]({{< relref "/commands/xackdel" >}}) combines acknowledgment and deletion atomically
-
-These options control how consumer group references are handled:
-
-- **KEEPREF** (default): Preserves existing references to entries in all consumer groups' PELs, maintaining backward compatibility
-- **DELREF**: Removes all references to entries from all consumer groups' PELs, effectively cleaning up all traces of the messages
-- **ACKED**: Only processes entries that have been acknowledged by all consumer groups
-
-The `ACKED` option is particularly useful as it automates the complex logic of coordinating deletion across multiple consumer groups, ensuring entries are only removed when all groups have finished processing them.
-
 ## Streams observability
 
 Messaging systems that lack observability are very hard to work with. Not knowing who is consuming messages, what messages are pending, the set of consumer groups active in a given stream, makes everything opaque. For this reason, Redis Streams and consumer groups have different ways to observe what is happening. We already covered [`XPENDING`]({{< relref "/commands/xpending" >}}), which allows us to inspect the list of messages that are under processing at a given moment, together with their idle time and number of deliveries.
@@ -849,28 +824,13 @@ There is also the [`XTRIM`]({{< relref "/commands/xtrim" >}}) command, which per
 Or, as for the [`XADD`]({{< relref "/commands/xadd" >}}) option:
 
 {{< clients-example stream_tutorial xtrim2 >}}
-> XTRIM mystream MAXLEN ~ 10
+> XTRIM race:italy MAXLEN ~ 10
 (integer) 0
 {{< /clients-example >}}
 
 However, [`XTRIM`]({{< relref "/commands/xtrim" >}}) is designed to accept different trimming strategies. Another trimming strategy is **MINID**, that evicts entries with IDs lower than the one specified.
 
 As [`XTRIM`]({{< relref "/commands/xtrim" >}}) is an explicit command, the user is expected to know about the possible shortcomings of different trimming strategies.
-
-### Trimming with consumer group awareness
-
-Starting with Redis 8.2, both [`XADD`]({{< relref "/commands/xadd" >}}) with trimming options and [`XTRIM`]({{< relref "/commands/xtrim" >}}) support enhanced control over how trimming interacts with consumer groups through the `KEEPREF`, `DELREF`, and `ACKED` options:
-
-```
-XADD mystream KEEPREF MAXLEN 1000 * field value
-XTRIM mystream ACKED MAXLEN 1000
-```
-
-- **KEEPREF** (default): Trims entries according to the strategy but preserves references in consumer group PELs
-- **DELREF**: Trims entries and removes all references from consumer group PELs
-- **ACKED**: Only trims entries that have been acknowledged by all consumer groups
-
-The `ACKED` option is particularly useful for maintaining data integrity across multiple consumer groups, ensuring that entries are only removed when all groups have finished processing them.
 
 Another useful eviction strategy that may be added to [`XTRIM`]({{< relref "/commands/xtrim" >}}) in the future, is to remove by a range of IDs to ease use of [`XRANGE`]({{< relref "/commands/xrange" >}}) and [`XTRIM`]({{< relref "/commands/xtrim" >}}) to move data from Redis to other storage systems if needed.
 
@@ -922,15 +882,7 @@ Streams also have a special command for removing items from the middle of a stre
       2) "Wood"
 {{< /clients-example >}}
 
-### Enhanced deletion with XDELEX
-
-Starting with Redis 8.2, the [`XDELEX`]({{< relref "/commands/xdelex" >}}) command provides enhanced control over entry deletion, particularly when working with consumer groups. Like other enhanced commands, it supports `KEEPREF`, `DELREF`, and `ACKED` options:
-
-```
-XDELEX mystream ACKED IDS 2 1692633198206-0 1692633208557-0
-```
-
-This allows you to delete entries only when they have been acknowledged by all consumer groups (`ACKED`), remove all consumer group references (`DELREF`), or preserve existing references (`KEEPREF`).
+However in the current implementation, memory is not really reclaimed until a macro node is completely empty, so you should not abuse this feature.
 
 ## Zero length streams
 
@@ -978,6 +930,9 @@ A few remarks:
 
 * Here we processed up to 10k messages per iteration, this means that the `COUNT` parameter of [`XREADGROUP`]({{< relref "/commands/xreadgroup" >}}) was set to 10000. This adds a lot of latency but is needed in order to allow the slow consumers to be able to keep with the message flow. So you can expect a real world latency that is a lot smaller.
 * The system used for this benchmark is very slow compared to today's standards.
+
+
+
 
 ## Learn more
 
